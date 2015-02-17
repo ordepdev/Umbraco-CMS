@@ -78,8 +78,8 @@ namespace Umbraco.Core.Services
 
         public void DeactiveStaleServers(TimeSpan staleTimeout)
         {
-            var uow = _uowProvider.GetUnitOfWork();
-            using (var repo = _repositoryFactory.CreateServerRegistrationRepository(uow))
+            var uow = UowProvider.GetUnitOfWork();
+            using (var repo = RepositoryFactory.CreateServerRegistrationRepository(uow))
             {
                 repo.DeactiveStaleServers(staleTimeout);
             }
