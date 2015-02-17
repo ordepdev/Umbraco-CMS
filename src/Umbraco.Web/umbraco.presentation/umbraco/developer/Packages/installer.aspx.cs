@@ -13,6 +13,7 @@ using System.Web.UI.HtmlControls;
 using System.Xml;
 using System.Xml.XPath;
 using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
 using Umbraco.Web;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
@@ -30,11 +31,12 @@ namespace umbraco.presentation.developer.packages
         public Installer()
         {
             CurrentApp = DefaultApps.developer.ToString();
+            _installer = new cms.businesslogic.packager.Installer(UmbracoUser.Id);
         }
 
         private Control _configControl;
         private cms.businesslogic.packager.repositories.Repository _repo;
-        private readonly cms.businesslogic.packager.Installer _installer = new cms.businesslogic.packager.Installer();
+        private readonly cms.businesslogic.packager.Installer _installer = null;
         private string _tempFileName = "";
 
         protected string RefreshQueryString { get; set; }
@@ -81,7 +83,7 @@ namespace umbraco.presentation.developer.packages
                     if (!pack.Protected)
                     {
                         //if it isn't then go straigt to the accept licens screen
-                        tempFile.Value = _installer.Import(_repo.fetch(Request.GetItemAsString("guid")));
+                        tempFile.Value = _installer.Import(_repo.fetch(Request.GetItemAsString("guid"), UmbracoUser.Id));
                         UpdateSettings();
 
                     }
@@ -354,7 +356,7 @@ namespace umbraco.presentation.developer.packages
             _installer.InstallCleanUp(packageId, dir);
 
             // Update ClientDependency version
-            var clientDependencyConfig = new Umbraco.Core.Configuration.ClientDependencyConfiguration();
+            var clientDependencyConfig = new Umbraco.Core.Configuration.ClientDependencyConfiguration(LoggerResolver.Current.Logger);
             var clientDependencyUpdated = clientDependencyConfig.IncreaseVersionNumber();
             
             //clear the tree cache - we'll do this here even though the browser will reload, but just in case it doesn't can't hurt.

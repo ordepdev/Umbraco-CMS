@@ -19,10 +19,9 @@ namespace Umbraco.Web.Cache
 
         public static void RefreshPublicAccess(this DistributedCache dc)
         {
-            dc.RefreshByJson(new Guid(DistributedCache.PublicAccessCacheRefresherId),
-                PublicAccessCacheRefresher.SerializeToJsonPayload(
-                    Access.GetXmlDocumentCopy()));
+            dc.RefreshAll(new Guid(DistributedCache.PublicAccessCacheRefresherId));
         }
+
 
         #endregion
 
@@ -648,7 +647,7 @@ namespace Umbraco.Web.Cache
 
         #region Domain Cache
 
-        public static void RefreshDomainCache(this DistributedCache dc, Domain domain)
+        public static void RefreshDomainCache(this DistributedCache dc, IDomain domain)
         {
             if (domain != null)
             {
@@ -656,7 +655,7 @@ namespace Umbraco.Web.Cache
             }
         }
 
-        public static void RemoveDomainCache(this DistributedCache dc, Domain domain)
+        public static void RemoveDomainCache(this DistributedCache dc, IDomain domain)
         {
             if (domain != null)
             {

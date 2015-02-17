@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,7 @@ using Umbraco.Core.Dictionary;
 using Umbraco.Core.Dynamics;
 using Umbraco.Core.Models;
 using Umbraco.Core.Security;
+using Umbraco.Core.Services;
 using Umbraco.Core.Xml;
 using Umbraco.Web.Routing;
 using Umbraco.Web.Security;
@@ -23,9 +25,11 @@ using System.Collections.Generic;
 using umbraco.cms.businesslogic.web;
 using umbraco.presentation.templateControls;
 using Umbraco.Core.Cache;
+using AttributeCollection = System.Web.UI.AttributeCollection;
 
 namespace Umbraco.Web
 {
+
     /// <summary>
 	/// A helper class that provides many useful methods and functionality for using Umbraco in templates
 	/// </summary>
@@ -42,7 +46,7 @@ namespace Umbraco.Web
         /// </summary>
         public TagQuery TagQuery
         {
-            get { return _tag ?? (_tag = new TagQuery(UmbracoContext.Application.Services.TagService)); }
+            get { return _tag ?? (_tag = new TagQuery(UmbracoContext.Application.Services.TagService, ContentQuery)); }
         }
 
         /// <summary>
@@ -483,32 +487,44 @@ namespace Umbraco.Web
 
 		#region Membership
 
-		/// <summary>
-		/// Check if a document object is protected by the "Protect Pages" functionality in umbraco
-		/// </summary>
-		/// <param name="documentId">The identifier of the document object to check</param>
-		/// <param name="path">The full path of the document object to check</param>
-		/// <returns>True if the document object is protected</returns>
-		public bool IsProtected(int documentId, string path)
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		[Obsolete("Use the IsProtected method that only specifies path")]
+        public bool IsProtected(int documentId, string path)
 		{
-			return Access.IsProtected(documentId, path);
+            return IsProtected(path.EnsureEndsWith("," + documentId));
 		}
 
-		/// <summary>
-		/// Check if the current user has access to a document
-		/// </summary>
-		/// <param name="nodeId">The identifier of the document object to check</param>
-		/// <param name="path">The full path of the document object to check</param>
-		/// <returns>True if the current user has access or if the current document isn't protected</returns>
-		public bool MemberHasAccess(int nodeId, string path)
-		{
-			if (IsProtected(nodeId, path))
-			{
+        /// <summary>
+        /// Check if a document object is protected by the "Protect Pages" functionality in umbraco
+        /// </summary>
+        /// <param name="path">The full path of the document object to check</param>
+        /// <returns>True if the document object is protected</returns>
+        public bool IsProtected(string path)
+        {
+            return UmbracoContext.Application.Services.PublicAccessService.IsProtected(path);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Use the MemberHasAccess method that only specifies path")]
+        public bool MemberHasAccess(int nodeId, string path)
+        {
+            return MemberHasAccess(path.EnsureEndsWith("," + nodeId));
+        }
+
+        /// <summary>
+        /// Check if the current user has access to a document
+        /// </summary>
+        /// <param name="path">The full path of the document object to check</param>
+        /// <returns>True if the current user has access or if the current document isn't protected</returns>        
+        public bool MemberHasAccess(string path)
+        {
+            if (IsProtected(path))
+            {
                 return _membershipHelper.IsLoggedIn()
-                    && Access.HasAccess(nodeId, path, GetCurrentMember());
-			}
-			return true;
-		}
+                       && UmbracoContext.Application.Services.PublicAccessService.HasAccess(path, GetCurrentMember(), Roles.Provider);
+            }
+            return true;
+        }
 
         /// <summary>
         /// Gets (or adds) the current member from the current request cache
@@ -1140,143 +1156,146 @@ namespace Umbraco.Web
 		}
 		public IHtmlString Truncate(string html, int length, bool addElipsis, bool treatTagsAsContent)
 		{
-			using (var outputms = new MemoryStream())
-			{
-				using (var outputtw = new StreamWriter(outputms))
-				{
-					using (var ms = new MemoryStream())
-					{
-						using (var tw = new StreamWriter(ms))
-						{
-							tw.Write(html);
-							tw.Flush();
-							ms.Position = 0;
-							var tagStack = new Stack<string>();
-							using (TextReader tr = new StreamReader(ms))
-							{
-								bool IsInsideElement = false;
-								bool lengthReached = false;
-								int ic = 0;
-								int currentLength = 0, currentTextLength = 0;
-								string currentTag = string.Empty;
-								string tagContents = string.Empty;
-								bool insideTagSpaceEncountered = false;
-								bool isTagClose = false;
-								while ((ic = tr.Read()) != -1)
-								{
-									bool write = true;
+            using (var outputms = new MemoryStream())
+            {
+                using (var outputtw = new StreamWriter(outputms))
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        using (var tw = new StreamWriter(ms))
+                        {
+                            tw.Write(html);
+                            tw.Flush();
+                            ms.Position = 0;
+                            var tagStack = new Stack<string>();
 
-									if (ic == (int)'<')
-									{
-										if (!lengthReached)
-										{
-											IsInsideElement = true;
-										}
-										insideTagSpaceEncountered = false;
-										currentTag = string.Empty;
-										tagContents = string.Empty;
-										isTagClose = false;
-										if (tr.Peek() == (int)'/')
-										{
-											isTagClose = true;
-										}
-									}
-									else if (ic == (int)'>')
-									{
-										//if (IsInsideElement)
-										//{
-										IsInsideElement = false;
-										//if (write)
-										//{
-										//  outputtw.Write('>');
-										//}
-										currentTextLength++;
-										if (isTagClose && tagStack.Count > 0)
-										{
-											string thisTag = tagStack.Pop();
-											outputtw.Write("</" + thisTag + ">");
-										}
-										if (!isTagClose && currentTag.Length > 0)
-										{
-											if (!lengthReached)
-											{
-												tagStack.Push(currentTag);
-												outputtw.Write("<" + currentTag);
-												if (tr.Peek() != (int)' ')
-												{
-													if (!string.IsNullOrEmpty(tagContents))
-													{
-														if (tagContents.EndsWith("/"))
-														{
-															//short close
-															tagStack.Pop();
-														}
-														outputtw.Write(tagContents);
-													}
-													outputtw.Write(">");
-												}
-											}
-										}
-										//}
-										continue;
-									}
-									else
-									{
-										if (IsInsideElement)
-										{
-											if (ic == (int)' ')
-											{
-												if (!insideTagSpaceEncountered)
-												{
-													insideTagSpaceEncountered = true;
-													//if (!isTagClose)
-													//{
-													// tagStack.Push(currentTag);
-													//}
-												}
-											}
-											if (!insideTagSpaceEncountered)
-											{
-												currentTag += (char)ic;
-											}
-										}
-									}
-									if (IsInsideElement || insideTagSpaceEncountered)
-									{
-										write = false;
-										if (insideTagSpaceEncountered)
-										{
-											tagContents += (char)ic;
-										}
-									}
-									if (!IsInsideElement || treatTagsAsContent)
-									{
-										currentTextLength++;
-									}
-									currentLength++;
-									if (currentTextLength <= length || (lengthReached && IsInsideElement))
-									{
-										if (write)
-										{
-											outputtw.Write((char)ic);
-										}
-									}
-									if (!lengthReached && currentTextLength >= length)
-									{
-										//reached truncate point
-										if (addElipsis)
-										{
-											outputtw.Write("&hellip;");
-										}
-										lengthReached = true;
-									}
+                            using (TextReader tr = new StreamReader(ms))
+                            {
+                                bool isInsideElement = false,
+                                    lengthReached = false,
+                                    insideTagSpaceEncountered = false,
+                                    isTagClose = false;
 
-								}
+                                int ic = 0,
+                                    currentLength = 0,
+                                    currentTextLength = 0;
 
-							}
-						}
-					}
-					outputtw.Flush();
+                                string currentTag = string.Empty,
+                                    tagContents = string.Empty;
+
+                                while ((ic = tr.Read()) != -1)
+                                {
+                                    bool write = true;
+
+                                    switch ((char)ic)
+                                    {
+                                        case '<':
+                                            if (!lengthReached)
+                                            {
+                                                isInsideElement = true;
+                                            }
+
+                                            insideTagSpaceEncountered = false;
+                                            currentTag = string.Empty;
+                                            tagContents = string.Empty;
+                                            isTagClose = false;
+                                            if (tr.Peek() == (int)'/')
+                                            {
+                                                isTagClose = true;
+                                            }
+                                            break;
+
+                                        case '>':
+                                            isInsideElement = false;
+
+                                            if (isTagClose && tagStack.Count > 0)
+                                            {
+                                                string thisTag = tagStack.Pop();
+                                                outputtw.Write("</" + thisTag + ">");
+                                            }
+                                            if (!isTagClose && currentTag.Length > 0)
+                                            {
+                                                if (!lengthReached)
+                                                {
+                                                    tagStack.Push(currentTag);
+                                                    outputtw.Write("<" + currentTag);
+                                                    if (!string.IsNullOrEmpty(tagContents))
+                                                    {
+                                                        if (tagContents.EndsWith("/"))
+                                                        {
+                                                            // No end tag e.g. <br />.
+                                                            tagStack.Pop();
+                                                        }
+
+                                                        outputtw.Write(tagContents);
+                                                        write = true;
+                                                        insideTagSpaceEncountered = false;
+                                                    }
+                                                    outputtw.Write(">");
+                                                }
+                                            }
+                                            // Continue to next iteration of the text reader.
+                                            continue;
+
+                                        default:
+                                            if (isInsideElement)
+                                            {
+                                                if (ic == (int)' ')
+                                                {
+                                                    if (!insideTagSpaceEncountered)
+                                                    {
+                                                        insideTagSpaceEncountered = true;
+                                                    }
+                                                }
+
+                                                if (!insideTagSpaceEncountered)
+                                                {
+                                                    currentTag += (char)ic;
+                                                }
+                                            }
+                                            break;
+                                    }
+
+                                    if (isInsideElement || insideTagSpaceEncountered)
+                                    {
+                                        write = false;
+                                        if (insideTagSpaceEncountered)
+                                        {
+                                            tagContents += (char)ic;
+                                        }
+                                    }
+
+                                    if (!isInsideElement || treatTagsAsContent)
+                                    {
+                                        currentTextLength++;
+                                    }
+
+                                    if (currentTextLength <= length || (lengthReached && isInsideElement))
+                                    {
+                                        if (write)
+                                        {
+                                            var charToWrite = (char)ic;
+                                            outputtw.Write(charToWrite);
+                                            currentLength++;
+                                        }
+                                    }
+
+                                    if (!lengthReached && currentTextLength >= length)
+                                    {
+                                        // Reached truncate limit.
+                                        if (addElipsis)
+                                        {
+                                            outputtw.Write("&hellip;");
+                                        }
+                                        lengthReached = true;
+                                    }
+
+                                }
+
+                            }
+                        }
+                    }
+                    outputtw.Flush();
 					outputms.Position = 0;
 					using (TextReader outputtr = new StreamReader(outputms))
 					{
@@ -1327,7 +1346,7 @@ namespace Umbraco.Web
         public HtmlString EnableCanvasDesigner(string canvasdesignerConfigPath, string canvasdesignerPalettesPath)
         {
 
-            string previewLink = @"<script src=""/Umbraco/lib/jquery/jquery-2.0.3.min.js"" type=""text/javascript""></script>" +
+            string previewLink = @"<script src=""/Umbraco/lib/jquery/jquery.min.js"" type=""text/javascript""></script>" +
                                  @"<script src=""{0}"" type=""text/javascript""></script>" +
                                  @"<script src=""{1}"" type=""text/javascript""></script>" +
                                  @"<script type=""text/javascript"">var pageId = '{2}'</script>" +

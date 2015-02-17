@@ -6,6 +6,7 @@ using System.Xml;
 using Umbraco.Core;
 using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Models;
 using Umbraco.Core.Models.Rdbms;
 using Umbraco.Core.Services;
 using umbraco.DataLayer;
@@ -28,7 +29,8 @@ namespace umbraco.cms.businesslogic.language
     {
         #region Private members
 
-        private Umbraco.Core.Models.ILanguage _lang;
+        internal ILanguage LanguageEntity { get; private set; }
+
         #endregion
 
         #region Constants and static members
@@ -54,8 +56,8 @@ namespace umbraco.cms.businesslogic.language
         /// <param name="id">The id.</param>
         public Language(int id)
         {
-            _lang = ApplicationContext.Current.Services.LocalizationService.GetLanguageById(id);
-            if (_lang == null)
+            LanguageEntity = ApplicationContext.Current.Services.LocalizationService.GetLanguageById(id);
+            if (LanguageEntity == null)
             {
                 throw new ArgumentException("No language found with the specified id");
             }
@@ -65,6 +67,11 @@ namespace umbraco.cms.businesslogic.language
         /// Empty constructor used to create a language object manually
         /// </summary>
         internal Language() { }
+
+        internal Language(ILanguage langEntity)
+        {
+            LanguageEntity = langEntity;
+        }
 
         #endregion
 
@@ -80,9 +87,12 @@ namespace umbraco.cms.businesslogic.language
             if (culture != null)
             {
                 //insert it
-                var lang = new Umbraco.Core.Models.Language(cultureCode);
+                var lang = new Umbraco.Core.Models.Language(cultureCode)
+                {
+                    CultureName = culture.DisplayName
+                };
                 ApplicationContext.Current.Services.LocalizationService.Save(lang);
-                var ct = new Language { _lang = lang };
+                var ct = new Language(lang);
                 ct.OnNew(new NewEventArgs());
             }
         }
@@ -108,10 +118,7 @@ namespace umbraco.cms.businesslogic.language
         /// </remarks>
         public static IEnumerable<Language> GetAllAsList()
         {
-            var all = ApplicationContext.Current.Services.LocalizationService.GetAllLanguages().Select(x => new Language
-            {
-                _lang = x
-            }).ToArray();
+            var all = ApplicationContext.Current.Services.LocalizationService.GetAllLanguages().Select(x => new Language(x)).ToArray();
             return all;
         }
       
@@ -125,10 +132,7 @@ namespace umbraco.cms.businesslogic.language
         {
             var found = ApplicationContext.Current.Services.LocalizationService.GetLanguageByIsoCode(cultureCode);
             if (found == null) return null;
-            var lang = new Language
-            {
-                _lang = found
-            };
+            var lang = new Language(found);
             return lang;
         }
 
@@ -171,7 +175,7 @@ namespace umbraco.cms.businesslogic.language
         /// </summary>
         public int id
         {
-            get { return _lang.Id; }
+            get { return LanguageEntity.Id; }
         }
 
         /// <summary>
@@ -179,10 +183,10 @@ namespace umbraco.cms.businesslogic.language
         /// </summary>
         public string CultureAlias
         {
-            get { return _lang.IsoCode; }
+            get { return LanguageEntity.IsoCode; }
             set
             {
-                _lang.IsoCode = value;
+                LanguageEntity.IsoCode = value;
             }
         }
 
@@ -191,7 +195,7 @@ namespace umbraco.cms.businesslogic.language
         /// </summary>
         public string FriendlyName
         {
-            get { return _lang.CultureInfo.DisplayName; }
+            get { return LanguageEntity.CultureInfo.DisplayName; }
         } 
         #endregion
 
@@ -230,7 +234,7 @@ namespace umbraco.cms.businesslogic.language
             FireBeforeSave(e);
 
             //Do the update!
-            ApplicationContext.Current.Services.LocalizationService.Save(_lang);
+            ApplicationContext.Current.Services.LocalizationService.Save(LanguageEntity);
 
             if (!e.Cancel)
             {
@@ -255,15 +259,15 @@ namespace umbraco.cms.businesslogic.language
 
                 if (!e.Cancel)
                 {
-                    ApplicationContext.Current.Services.LocalizationService.Delete(_lang);
+                    ApplicationContext.Current.Services.LocalizationService.Delete(LanguageEntity);
 
                     FireAfterDelete(e);
                 }
             }
             else
             {
-                var e = new DataException("Cannot remove language " + _lang.CultureInfo.DisplayName + " because it's attached to a domain on a node");
-                LogHelper.Error<Language>("Cannot remove language " + _lang.CultureInfo.DisplayName + " because it's attached to a domain on a node", e);
+                var e = new DataException("Cannot remove language " + LanguageEntity.CultureInfo.DisplayName + " because it's attached to a domain on a node");
+                LogHelper.Error<Language>("Cannot remove language " + LanguageEntity.CultureInfo.DisplayName + " because it's attached to a domain on a node", e);
                 throw e;
             }           
         }
@@ -276,7 +280,7 @@ namespace umbraco.cms.businesslogic.language
         public XmlNode ToXml(XmlDocument xd)
         {
             var serializer = new EntityXmlSerializer();
-            var xml = serializer.Serialize(_lang);
+            var xml = serializer.Serialize(LanguageEntity);
             return xml.GetXmlNode(xd);
         } 
         #endregion

@@ -28,12 +28,10 @@ namespace Umbraco.Core.Persistence.Repositories
         void ReplaceContentPermissions(EntityPermissionSet permissionSet);
 
         /// <summary>
-        /// Gets a specific language version of an <see cref="IContent"/>
+        /// Clears the published flag for a content.
         /// </summary>
-        /// <param name="id">Id of the <see cref="IContent"/> to retrieve version from</param>
-        /// <param name="language">Culture code for the language to retrieve</param>
-        /// <returns>An <see cref="IContent"/> item</returns>
-        IContent GetByLanguage(int id, string language);
+        /// <param name="content"></param>
+        void ClearPublished(IContent content);
 
         /// <summary>
         /// Gets all published Content by the specified query

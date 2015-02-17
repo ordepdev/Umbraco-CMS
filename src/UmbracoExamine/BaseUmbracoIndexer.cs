@@ -157,11 +157,6 @@ namespace UmbracoExamine
             }         
 
             DataService.LogService.AddVerboseLog(-1, string.Format("{0} indexer initializing", name));
-            
-            //Before we initialize the base provider which is going to setup all of the directory structures based on the index
-            // set, we want to dynamically override the index working folder based on a given token. Currently we only support two
-            // and that is {machinename}, {appdomainappid}
-            ExamineHelper.ReplaceTokensInIndexPath(name, config, "Indexer", () => IndexerData != null);
 
             base.Initialize(name, config);
 
@@ -216,8 +211,9 @@ namespace UmbracoExamine
             //if temp local storage is configured use that, otherwise return the default
             if (UseTempStorage)
             {
+                var directory = GetLuceneDirectory();
                 return new IndexWriter(GetLuceneDirectory(), IndexingAnalyzer,
-                    DeletePolicyTracker.Current.GetPolicy(IndexSetName),
+                    DeletePolicyTracker.Current.GetPolicy(directory),
                     IndexWriter.MaxFieldLength.UNLIMITED);
             }
 

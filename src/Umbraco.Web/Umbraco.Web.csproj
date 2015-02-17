@@ -115,9 +115,9 @@
     <Reference Include="dotless.Core">
       <HintPath>..\packages\dotless.1.4.1.0\lib\dotless.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Examine, Version=0.1.59.2941, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="Examine, Version=0.1.60.2941, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Examine.0.1.59.2941\lib\Examine.dll</HintPath>
+      <HintPath>..\packages\Examine.0.1.60.2941\lib\Examine.dll</HintPath>
     </Reference>
     <Reference Include="HtmlAgilityPack, Version=1.4.6.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -167,8 +167,14 @@
       <SpecificVersion>False</SpecificVersion>
       <Private>False</Private>
     </Reference>
+    <Reference Include="System.Net.Http.Extensions">
+      <HintPath>..\packages\Microsoft.Net.Http.2.2.28\lib\net45\System.Net.Http.Extensions.dll</HintPath>
+    </Reference>
     <Reference Include="System.Net.Http.Formatting, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.4.0.30506.0\lib\net40\System.Net.Http.Formatting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http.Primitives">
+      <HintPath>..\packages\Microsoft.Net.Http.2.2.28\lib\net45\System.Net.Http.Primitives.dll</HintPath>
     </Reference>
     <Reference Include="System.Net.Http.WebRequest, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -268,6 +274,13 @@
     </Compile>
     <Compile Include="ApplicationContextExtensions.cs" />
     <Compile Include="AreaRegistrationContextExtensions.cs" />
+    <Compile Include="Models\ContentEditing\Relation.cs" />
+    <Compile Include="Models\ContentEditing\RelationType.cs" />
+    <Compile Include="Models\LegacyConvertedNode.cs" />
+    <Compile Include="Models\LegacyConvertedNodeProperty.cs" />
+    <Compile Include="Models\Mapping\RelationModelMapper.cs" />
+    <Compile Include="Mvc\MvcVersionCheck.cs" />
+    <Compile Include="Mvc\ReflectedFixedRazorViewEngine.cs" />
     <Compile Include="Scheduling\BackgroundTaskRunner.cs" />
     <Compile Include="BatchedDatabaseServerMessenger.cs" />
     <Compile Include="BatchedServerMessenger.cs" />
@@ -309,6 +322,7 @@
     <Compile Include="Editors\EntityControllerConfigurationAttribute.cs" />
     <Compile Include="Editors\ImagesController.cs" />
     <Compile Include="Editors\PackageInstallController.cs" />
+    <Compile Include="Editors\RelationController.cs" />
     <Compile Include="Editors\CanvasDesignerController.cs" />
     <Compile Include="Editors\UserController.cs" />
     <Compile Include="GridTemplateExtensions.cs" />
@@ -396,7 +410,6 @@
     <Compile Include="Mvc\UmbracoViewPage.cs" />
     <Compile Include="Editors\LogController.cs" />
     <Compile Include="Editors\MacroController.cs" />
-    <Compile Include="Editors\MembershipProviderValidationFilterAttribute.cs" />
     <Compile Include="Editors\MemberTypeController.cs" />
     <Compile Include="Editors\UpdateCheckController.cs" />
     <Compile Include="MembershipProviderExtensions.cs" />
@@ -494,9 +507,17 @@
     <Compile Include="Mvc\UmbracoVirtualNodeRouteHandler.cs" />
     <Compile Include="Routing\CustomRouteUrlProvider.cs" />
     <Compile Include="Routing\UrlProviderExtensions.cs" />
+    <Compile Include="Scheduling\BackgroundTaskRunnerOptions.cs" />
+    <Compile Include="Scheduling\DelayedRecurringTaskBase.cs" />
+    <Compile Include="Scheduling\IBackgroundTaskRunner.cs" />
+    <Compile Include="Scheduling\ILatchedBackgroundTask.cs" />
+    <Compile Include="Scheduling\RecurringTaskBase.cs" />
+    <Compile Include="Scheduling\TaskAndFactoryExtensions.cs" />
     <Compile Include="Strategies\Migrations\ClearCsrfCookiesAfterUpgrade.cs" />
     <Compile Include="Strategies\Migrations\ClearMediaXmlCacheForDeletedItemsAfterUpgrade.cs" />
     <Compile Include="Strategies\Migrations\EnsureListViewDataTypeIsCreated.cs" />
+    <Compile Include="Strategies\Migrations\MigrationStartupHander.cs" />
+    <Compile Include="Strategies\Migrations\OverwriteStylesheetFilesFromTempFiles.cs" />
     <Compile Include="Strategies\NotificationsHandler.cs" />
     <Compile Include="Strategies\RelateOnCopyHandler.cs" />
     <Compile Include="TagQuery.cs" />
@@ -541,6 +562,7 @@
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
     <Compile Include="umbraco.presentation\umbraco\Trees\loadPackager.cs" />
+    <Compile Include="PublishedCache\XmlPublishedCache\XmlCacheFilePersister.cs" />
     <Compile Include="Web References\org.umbraco.our\Reference.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -552,9 +574,11 @@
     <Compile Include="WebApi\Filters\AngularAntiForgeryHelper.cs" />
     <Compile Include="WebApi\Filters\ClearAngularAntiForgeryTokenAttribute.cs" />
     <Compile Include="WebApi\Filters\DisableBrowserCacheAttribute.cs" />
+    <Compile Include="WebApi\Filters\EnableOverrideAuthorizationAttribute.cs" />
     <Compile Include="WebApi\Filters\FilterGrouping.cs" />
     <Compile Include="WebApi\Filters\LegacyTreeAuthorizeAttribute.cs" />
     <Compile Include="WebApi\Filters\OutgoingNoHyphenGuidFormatAttribute.cs" />
+    <Compile Include="WebApi\Filters\OverridableAuthorizationAttribute.cs" />
     <Compile Include="WebApi\Filters\SetAngularAntiForgeryTokensAttribute.cs" />
     <Compile Include="WebApi\Filters\UmbracoBackOfficeLogoutAttribute.cs" />
     <Compile Include="WebApi\Filters\UmbracoTreeAuthorizeAttribute.cs" />
@@ -742,7 +766,7 @@
     <Compile Include="UI\Bundles\JsUmbracoApplicationUI.cs" />
     <Compile Include="UI\Bundles\JsUmbracoTree.cs" />
     <Compile Include="UI\CdfLogger.cs" />
-    <Compile Include="umbraco.presentation\CompatibilityHelper.cs" />
+    <Compile Include="Models\LegacyNodeHelper.cs" />
     <Compile Include="umbraco.presentation\umbraco\controls\PasswordChanger.ascx.cs">
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
@@ -809,6 +833,7 @@
     <Compile Include="WebApi\HttpRequestMessageExtensions.cs" />
     <Compile Include="WebApi\JsonCamelCaseFormatter.cs" />
     <Compile Include="WebApi\MemberAuthorizeAttribute.cs" />
+    <Compile Include="WebApi\MvcVersionCheck.cs" />
     <Compile Include="WebApi\NamespaceHttpControllerSelector.cs" />
     <Compile Include="WebApi\UmbracoApiController.cs" />
     <Compile Include="WebApi\UmbracoApiControllerResolver.cs" />
@@ -2162,4 +2187,9 @@
     <!--<PostBuildEvent>xcopy "$(ProjectDir)..\..\lib\*.dll" "$(TargetDir)*.dll" /Y</PostBuildEvent>-->
   </PropertyGroup>
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
+  <Import Project="..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets" Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets')" />
+  <Target Name="EnsureBclBuildImported" BeforeTargets="BeforeBuild" Condition="'$(BclBuildImported)' == ''">
+    <Error Condition="!Exists('..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets')" Text="This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=317567." HelpKeyword="BCLBUILD2001" />
+    <Error Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets')" Text="The build restored NuGet packages. Build the project again to include these packages in the build. For more information, see http://go.microsoft.com/fwlink/?LinkID=317568." HelpKeyword="BCLBUILD2002" />
+  </Target>
 </Project>

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Umbraco.Core.Logging;
 
 namespace Umbraco.Core.Services
 {
@@ -12,6 +13,7 @@ namespace Umbraco.Core.Services
 
     public class LocalizedTextService : ILocalizedTextService
     {
+        private readonly ILogger _logger;
         private readonly IDictionary<CultureInfo, IDictionary<string, IDictionary<string, string>>> _dictionarySource;
         private readonly IDictionary<CultureInfo, Lazy<XDocument>> _xmlSource;
 
@@ -19,8 +21,11 @@ namespace Umbraco.Core.Services
         /// Initializes with a file sources instance
         /// </summary>
         /// <param name="fileSources"></param>
-        public LocalizedTextService(LocalizedTextServiceFileSources fileSources)
+        /// <param name="logger"></param>
+        public LocalizedTextService(LocalizedTextServiceFileSources fileSources, ILogger logger)
         {
+            if (logger == null) throw new ArgumentNullException("logger");
+            _logger = logger;
             _xmlSource = fileSources.GetXmlSources();
         }
 
@@ -28,20 +33,26 @@ namespace Umbraco.Core.Services
         /// Initializes with an XML source
         /// </summary>
         /// <param name="source"></param>
-        public LocalizedTextService(IDictionary<CultureInfo, Lazy<XDocument>> source)
+        /// <param name="logger"></param>
+        public LocalizedTextService(IDictionary<CultureInfo, Lazy<XDocument>> source, ILogger logger)
         {
             if (source == null) throw new ArgumentNullException("source");
+            if (logger == null) throw new ArgumentNullException("logger");
             _xmlSource = source;
+            _logger = logger;
         }
 
         /// <summary>
         /// Initializes with a source of a dictionary of culture -> areas -> sub dictionary of keys/values
         /// </summary>
         /// <param name="source"></param>
-        public LocalizedTextService(IDictionary<CultureInfo, IDictionary<string, IDictionary<string, string>>> source)
+        /// <param name="logger"></param>
+        public LocalizedTextService(IDictionary<CultureInfo, IDictionary<string, IDictionary<string, string>>> source, ILogger logger)
         {            
             if (source == null) throw new ArgumentNullException("source");
+            if (logger == null) throw new ArgumentNullException("logger");
             _dictionarySource = source;
+            _logger = logger;
         }
 
         public string Localize(string key, CultureInfo culture, IDictionary<string, string> tokens = null)
@@ -80,7 +91,8 @@ namespace Umbraco.Core.Services
             {
                 if (_xmlSource.ContainsKey(culture) == false)
                 {
-                    throw new NullReferenceException("The culture specified " + culture + " was not found in any configured sources for this service");
+                    _logger.Warn<LocalizedTextService>("The culture specified {0} was not found in any configured sources for this service", () => culture);
+                    return result;
                 }
 
                 //convert all areas + keys to a single key with a '/'
@@ -103,7 +115,8 @@ namespace Umbraco.Core.Services
             {
                 if (_dictionarySource.ContainsKey(culture) == false)
                 {
-                    throw new NullReferenceException("The culture specified " + culture + " was not found in any configured sources for this service");
+                    _logger.Warn<LocalizedTextService>("The culture specified {0} was not found in any configured sources for this service", () => culture);
+                    return result;
                 }
 
                 //convert all areas + keys to a single key with a '/'
@@ -137,7 +150,8 @@ namespace Umbraco.Core.Services
         {
             if (_dictionarySource.ContainsKey(culture) == false)
             {
-                throw new NullReferenceException("The culture specified " + culture + " was not found in any configured sources for this service");
+                _logger.Warn<LocalizedTextService>("The culture specified {0} was not found in any configured sources for this service", () => culture);
+                return "[" + key + "]";  
             }
 
             var cultureSource = _dictionarySource[culture];
@@ -174,7 +188,8 @@ namespace Umbraco.Core.Services
         {
             if (_xmlSource.ContainsKey(culture) == false)
             {
-                throw new NullReferenceException("The culture specified " + culture + " was not found in any configured sources for this service");
+                _logger.Warn<LocalizedTextService>("The culture specified {0} was not found in any configured sources for this service", () => culture);
+                return "[" + key + "]";                
             }
 
             var cultureSource = _xmlSource[culture].Value;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Persistence;
 using Umbraco.Core.Persistence.Querying;
@@ -12,25 +13,12 @@ namespace Umbraco.Core.Services
     /// <summary>
     /// Service to manage server registrations in the database
     /// </summary>
-    public sealed class ServerRegistrationService
+    public sealed class ServerRegistrationService : RepositoryService
     {
-        private readonly RepositoryFactory _repositoryFactory;
-        private readonly IDatabaseUnitOfWorkProvider _uowProvider;
 
-        public ServerRegistrationService()
-            : this(new RepositoryFactory())
-        { }
-
-        public ServerRegistrationService(RepositoryFactory repositoryFactory)
-            : this(new PetaPocoUnitOfWorkProvider(), repositoryFactory)
-        { }
-
-        public ServerRegistrationService(IDatabaseUnitOfWorkProvider provider, RepositoryFactory repositoryFactory)
+        public ServerRegistrationService(IDatabaseUnitOfWorkProvider provider, RepositoryFactory repositoryFactory, ILogger logger)
+            : base(provider, repositoryFactory, logger)
         {
-            if (provider == null) throw new ArgumentNullException("provider");
-            if (repositoryFactory == null) throw new ArgumentNullException("repositoryFactory");
-            _uowProvider = provider;
-            _repositoryFactory = repositoryFactory;
         }
 
         /// <summary>
@@ -41,8 +29,8 @@ namespace Umbraco.Core.Services
         /// <param name="staleServerTimeout"></param>
         public void EnsureActive(string address, string computerName, TimeSpan staleServerTimeout)
         {
-            var uow = _uowProvider.GetUnitOfWork();
-            using (var repo = _repositoryFactory.CreateServerRegistrationRepository(uow))
+            var uow = UowProvider.GetUnitOfWork();
+            using (var repo = RepositoryFactory.CreateServerRegistrationRepository(uow))
             {
                 var query = Query<ServerRegistration>.Builder.Where(x => x.ComputerName.ToUpper() == computerName.ToUpper());
                 var found = repo.GetByQuery(query).ToArray();
@@ -73,8 +61,8 @@ namespace Umbraco.Core.Services
         /// <param name="computerName"></param>
         public void DeactiveServer(string computerName)
         {
-            var uow = _uowProvider.GetUnitOfWork();
-            using (var repo = _repositoryFactory.CreateServerRegistrationRepository(uow))
+            var uow = UowProvider.GetUnitOfWork();
+            using (var repo = RepositoryFactory.CreateServerRegistrationRepository(uow))
             {
                 var query = Query<ServerRegistration>.Builder.Where(x => x.ComputerName.ToUpper() == computerName.ToUpper());
                 var found = repo.GetByQuery(query).ToArray();
@@ -103,8 +91,8 @@ namespace Umbraco.Core.Services
         /// <returns></returns>
         public IEnumerable<ServerRegistration> GetActiveServers()
         {
-            var uow = _uowProvider.GetUnitOfWork();
-            using (var repo = _repositoryFactory.CreateServerRegistrationRepository(uow))
+            var uow = UowProvider.GetUnitOfWork();
+            using (var repo = RepositoryFactory.CreateServerRegistrationRepository(uow))
             {
                 var query = Query<ServerRegistration>.Builder.Where(x => x.IsActive);
                 return repo.GetByQuery(query).ToArray();

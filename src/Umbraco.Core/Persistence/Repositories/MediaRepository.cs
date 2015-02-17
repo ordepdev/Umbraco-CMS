@@ -7,10 +7,11 @@ using System.Xml.Linq;
 using Umbraco.Core.Configuration;
 using Umbraco.Core.Dynamics;
 using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.EntityBase;
 using Umbraco.Core.Models.Rdbms;
-using Umbraco.Core.Persistence.Caching;
+
 using Umbraco.Core.Persistence.DatabaseModelDefinitions;
 using Umbraco.Core.Persistence.Factories;
 using Umbraco.Core.Persistence.Querying;
@@ -30,27 +31,15 @@ namespace Umbraco.Core.Persistence.Repositories
         private readonly ContentXmlRepository<IMedia> _contentXmlRepository;
         private readonly ContentPreviewRepository<IMedia> _contentPreviewRepository;
 
-        public MediaRepository(IDatabaseUnitOfWork work, IMediaTypeRepository mediaTypeRepository, ITagRepository tagRepository)
-            : base(work)
+        public MediaRepository(IDatabaseUnitOfWork work, CacheHelper cache, ILogger logger, ISqlSyntaxProvider sqlSyntax, IMediaTypeRepository mediaTypeRepository, ITagRepository tagRepository)
+            : base(work, cache, logger, sqlSyntax)
         {
             if (mediaTypeRepository == null) throw new ArgumentNullException("mediaTypeRepository");
             if (tagRepository == null) throw new ArgumentNullException("tagRepository");
             _mediaTypeRepository = mediaTypeRepository;
             _tagRepository = tagRepository;
-            _contentXmlRepository = new ContentXmlRepository<IMedia>(work, NullCacheProvider.Current);
-            _contentPreviewRepository = new ContentPreviewRepository<IMedia>(work, NullCacheProvider.Current);
-            EnsureUniqueNaming = true;
-        }
-
-        public MediaRepository(IDatabaseUnitOfWork work, IRepositoryCacheProvider cache, IMediaTypeRepository mediaTypeRepository, ITagRepository tagRepository)
-            : base(work, cache)
-        {
-            if (mediaTypeRepository == null) throw new ArgumentNullException("mediaTypeRepository");
-            if (tagRepository == null) throw new ArgumentNullException("tagRepository");
-            _mediaTypeRepository = mediaTypeRepository;
-            _tagRepository = tagRepository;
-            _contentXmlRepository = new ContentXmlRepository<IMedia>(work, NullCacheProvider.Current);
-            _contentPreviewRepository = new ContentPreviewRepository<IMedia>(work, NullCacheProvider.Current);
+            _contentXmlRepository = new ContentXmlRepository<IMedia>(work, CacheHelper.CreateDisabledCacheHelper(), logger, sqlSyntax);
+            _contentPreviewRepository = new ContentPreviewRepository<IMedia>(work, CacheHelper.CreateDisabledCacheHelper(), logger, sqlSyntax);
             EnsureUniqueNaming = true;
         }
 
@@ -190,7 +179,7 @@ namespace Umbraco.Core.Persistence.Repositories
                         .On<ContentXmlDto, NodeDto>(left => left.NodeId, right => right.NodeId)
                         .Where<NodeDto>(dto => dto.NodeObjectType == mediaObjectType);
 
-                    var deleteSql = SqlSyntaxContext.SqlSyntaxProvider.GetDeleteSubquery("cmsContentXml", "nodeId", subQuery);
+                    var deleteSql = SqlSyntax.GetDeleteSubquery("cmsContentXml", "nodeId", subQuery);
                     Database.Execute(deleteSql);
                 }
                 else
@@ -209,7 +198,7 @@ namespace Umbraco.Core.Persistence.Repositories
                             .Where<NodeDto>(dto => dto.NodeObjectType == mediaObjectType)
                             .Where<ContentDto>(dto => dto.ContentTypeId == id1);
 
-                        var deleteSql = SqlSyntaxContext.SqlSyntaxProvider.GetDeleteSubquery("cmsContentXml", "nodeId", subQuery);
+                        var deleteSql = SqlSyntax.GetDeleteSubquery("cmsContentXml", "nodeId", subQuery);
                         Database.Execute(deleteSql);
                     }
                 }
@@ -228,7 +217,7 @@ namespace Umbraco.Core.Persistence.Repositories
                         var id = contentTypeId;
                         var query = Query<IMedia>.Builder.Where(x => x.ContentTypeId == id && x.Trashed == false);
                         RebuildXmlStructuresProcessQuery(serializer, query, tr, groupSize);
-                    }                    
+                    }
                 }
 
                 tr.Complete();
@@ -259,18 +248,12 @@ namespace Umbraco.Core.Persistence.Repositories
 
         public void AddOrUpdateContentXml(IMedia content, Func<IMedia, XElement> xml)
         {
-            var contentExists = Database.ExecuteScalar<int>("SELECT COUNT(nodeId) FROM cmsContentXml WHERE nodeId = @Id", new { Id = content.Id }) != 0;
-
-            _contentXmlRepository.AddOrUpdate(new ContentXmlEntity<IMedia>(contentExists, content, xml));
+            _contentXmlRepository.AddOrUpdate(new ContentXmlEntity<IMedia>(content, xml));
         }
 
         public void AddOrUpdatePreviewXml(IMedia content, Func<IMedia, XElement> xml)
         {
-            var previewExists =
-                    Database.ExecuteScalar<int>("SELECT COUNT(nodeId) FROM cmsPreviewXml WHERE nodeId = @Id AND versionId = @Version",
-                                                    new { Id = content.Id, Version = content.Version }) != 0;
-
-            _contentPreviewRepository.AddOrUpdate(new ContentPreviewEntity<IMedia>(previewExists, content, xml));
+            _contentPreviewRepository.AddOrUpdate(new ContentPreviewEntity<IMedia>(content, xml));
         }
 
         protected override void PerformDeleteVersion(int id, Guid versionId)
@@ -445,7 +428,7 @@ namespace Umbraco.Core.Persistence.Repositories
         {
             get { return Constants.System.RecycleBinMedia; }
         }
-      
+
         #endregion
 
         /// <summary>
@@ -467,7 +450,7 @@ namespace Umbraco.Core.Persistence.Repositories
             Func<Tuple<string, object[]>> filterCallback = null;
             if (filter.IsNullOrWhiteSpace() == false)
             {
-                sbWhere.Append("AND (umbracoNode." + SqlSyntaxContext.SqlSyntaxProvider.GetQuotedColumnName("text") + " LIKE @" + args.Count + ")");
+                sbWhere.Append("AND (umbracoNode." + SqlSyntax.GetQuotedColumnName("text") + " LIKE @" + args.Count + ")");
                 args.Add("%" + filter + "%");
                 filterCallback = () => new Tuple<string, object[]>(sbWhere.ToString().Trim(), args.ToArray());
             }
@@ -592,6 +575,18 @@ namespace Umbraco.Core.Persistence.Repositories
             return currentName;
         }
 
-        
+        /// <summary>
+        /// Dispose disposable properties
+        /// </summary>
+        /// <remarks>
+        /// Ensure the unit of work is disposed
+        /// </remarks>
+        protected override void DisposeResources()
+        {
+            _mediaTypeRepository.Dispose();
+            _tagRepository.Dispose();
+            _contentXmlRepository.Dispose();
+            _contentPreviewRepository.Dispose();
+        }
     }
 }
